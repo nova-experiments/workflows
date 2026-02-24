@@ -31,6 +31,7 @@ jobs:
               return;
             }
 
+            const prNumber = context.payload.pull_request.number;
             // verify each issue exists and is open
             for (const number of issues) {
               console.log(`Checking referenced issue #${number}...`);
@@ -47,7 +48,7 @@ jobs:
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    issue_number: number,
+                    issue_number: prNumber,
                     body: `⚠️ PR validation failed: ${msg}`,
                   });
                   core.setFailed(msg);
@@ -58,11 +59,11 @@ jobs:
                 console.log(`Referenced issue #${number}... is not a pull request. State: ${response.data.state}`);
                 if (response.data.state == 'closed') {
                   const msg = `Referenced issue #${number} is not open (state: ${response.data.state}).`;
-                  // comment on the issue to explain why validation failed
+                  // comment on the pull request to explain why validation failed
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    issue_number: number,
+                    issue_number: prNumber,
                     body: `⚠️ PR validation failed: ${msg}`,
                   });
                   core.setFailed(msg);
@@ -72,7 +73,7 @@ jobs:
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: number,
+                  issue_number: prNumber,
                   body: `⚠️ PR validation encountered an error: ${msg}`,
                 });
                 core.setFailed(msg);
