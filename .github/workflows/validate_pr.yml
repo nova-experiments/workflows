@@ -14,20 +14,31 @@ jobs:
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
+            const title = context.payload.pull_request.title || '';
             const body = context.payload.pull_request.body || '';
+            // combine title and body to search both places
+            const text = `${title}\n${body}`;
             // gather all referenced issue numbers (either #123 or full issue URL)
             const issueRegex = /(?:#(\d+)|https:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/(\d+))/g;
             let match;
             const issues = new Set();
-            while ((match = issueRegex.exec(body)) !== null) {
+            while ((match = issueRegex.exec(text)) !== null) {
               issues.add(match[1] || match[2]);
             }
 
+            const prNumber = context.payload.pull_request.number;
             if (issues.size === 0) {
-              core.setFailed('Pull request description must include atleast one linked issue.');
+              msg = 'Pull request description must include atleast one linked issue.'
+              await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body: `⚠️ PR validation failed: ${msg}`,
+                  });
+              core.setFailed(msg);
               return;
             }
-
+            
             // verify each issue exists and is open
             for (const number of issues) {
               console.log(`Checking referenced issue #${number}...`);
@@ -38,13 +49,26 @@ jobs:
                   issue_number: number,
                 });
 
+                // Ensure the referenced number actually exists
+                if (!response || !response.data || Number(response.data.number) !== Number(number)) {
+                  const msg = `Referenced issue #${number} does not exist.`;
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body: `⚠️ PR validation failed: ${msg}`,
+                  });
+                  core.setFailed(msg);
+                  break;
+                }
+
                 // ensure the thing we fetched is actually an issue, not a pull request
                 if (response.data.pull_request) {
                   const msg = `Referenced number #${number} refers to a pull request, not an issue.`;
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    issue_number: number,
+                    issue_number: prNumber,
                     body: `⚠️ PR validation failed: ${msg}`,
                   });
                   core.setFailed(msg);
@@ -55,11 +79,11 @@ jobs:
                 console.log(`Referenced issue #${number}... is not a pull request. State: ${response.data.state}`);
                 if (response.data.state == 'closed') {
                   const msg = `Referenced issue #${number} is not open (state: ${response.data.state}).`;
-                  // comment on the issue to explain why validation failed
+                  // comment on the pull request to explain why validation failed
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    issue_number: number,
+                    issue_number: prNumber,
                     body: `⚠️ PR validation failed: ${msg}`,
                   });
                   core.setFailed(msg);
@@ -69,7 +93,7 @@ jobs:
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: number,
+                  issue_number: prNumber,
                   body: `⚠️ PR validation encountered an error: ${msg}`,
                 });
                 core.setFailed(msg);
