@@ -38,9 +38,22 @@ jobs:
                   issue_number: number,
                 });
 
-                console.log(`Referenced issue #${number} is in state: ${response.data.state}`);
+                // ensure the thing we fetched is actually an issue, not a pull request
+                if (response.data.pull_request) {
+                  const msg = `Referenced number #${number} refers to a pull request, not an issue.`;
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: number,
+                    body: `⚠️ PR validation failed: ${msg}`,
+                  });
+                  core.setFailed(msg);
+                  break;
+                }
 
-                if (response.data.state !== 'open') {
+                // Ensure the issue is not in a closed state
+                console.log(`Referenced issue #${number}... is not a pull request. State: ${response.data.state}`);
+                if (response.data.state == 'closed') {
                   const msg = `Referenced issue #${number} is not open (state: ${response.data.state}).`;
                   // comment on the issue to explain why validation failed
                   await github.rest.issues.createComment({
