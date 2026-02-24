@@ -30,12 +30,15 @@ jobs:
 
             // verify each issue exists and is open
             for (const number of issues) {
+              console.log(`Checking referenced issue #${number}...`);
               try {
                 const response = await github.rest.issues.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: number,
                 });
+
+                console.log(`Referenced issue #${number} is in state: ${response.data.state}`);
 
                 if (response.data.state !== 'open') {
                   const msg = `Referenced issue #${number} is not open (state: ${response.data.state}).`;
