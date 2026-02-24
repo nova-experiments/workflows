@@ -14,12 +14,15 @@ jobs:
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
+            const title = context.payload.pull_request.title || '';
             const body = context.payload.pull_request.body || '';
+            // combine title and body to search both places
+            const text = `${title}\n${body}`;
             // gather all referenced issue numbers (either #123 or full issue URL)
             const issueRegex = /(?:#(\d+)|https:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/(\d+))/g;
             let match;
             const issues = new Set();
-            while ((match = issueRegex.exec(body)) !== null) {
+            while ((match = issueRegex.exec(text)) !== null) {
               issues.add(match[1] || match[2]);
             }
 
