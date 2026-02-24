@@ -26,12 +26,19 @@ jobs:
               issues.add(match[1] || match[2]);
             }
 
+            const prNumber = context.payload.pull_request.number;
             if (issues.size === 0) {
-              core.setFailed('Pull request description must include atleast one linked issue.');
+              msg = 'Pull request description must include atleast one linked issue.'
+              await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body: `⚠️ PR validation failed: ${msg}`,
+                  });
+              core.setFailed(msg);
               return;
             }
-
-            const prNumber = context.payload.pull_request.number;
+            
             // verify each issue exists and is open
             for (const number of issues) {
               console.log(`Checking referenced issue #${number}...`);
