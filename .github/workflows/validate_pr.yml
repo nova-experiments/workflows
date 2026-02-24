@@ -1,0 +1,21 @@
+name: Validate PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-description:
+    name: Ensure PR description has linked issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate description
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            // look for either #123 or full issue URL
+            const linked = /(?:#\d+|https:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/\d+)/.test(body);
+            if (!linked) {
+              core.setFailed('Pull request description must include a linked issue.');
+            }
