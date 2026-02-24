@@ -49,6 +49,19 @@ jobs:
                   issue_number: number,
                 });
 
+                // Ensure the referenced number actually exists
+                if (!response || !response.data || Number(response.data.number) !== Number(number)) {
+                  const msg = `Referenced issue #${number} does not exist.`;
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body: `⚠️ PR validation failed: ${msg}`,
+                  });
+                  core.setFailed(msg);
+                  break;
+                }
+
                 // ensure the thing we fetched is actually an issue, not a pull request
                 if (response.data.pull_request) {
                   const msg = `Referenced number #${number} refers to a pull request, not an issue.`;
