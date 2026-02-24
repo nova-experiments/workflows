@@ -12,6 +12,7 @@ jobs:
       - name: Validate description
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GH_TOKEN }}
           script: |
             const body = context.payload.pull_request.body || '';
             // gather all referenced issue numbers (either #123 or full issue URL)
@@ -37,9 +38,24 @@ jobs:
                 });
 
                 if (response.data.state !== 'open') {
-                  core.setFailed(`Referenced issue #${number} is not open (state: ${response.data.state}).`);
+                  const msg = `Referenced issue #${number} is not open (state: ${response.data.state}).`;
+                  // comment on the issue to explain why validation failed
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: number,
+                    body: `⚠️ PR validation failed: ${msg}`,
+                  });
+                  core.setFailed(msg);
                 }
               } catch (error) {
-                core.setFailed(`Unable to fetch issue #${number}: ${error.message}`);
+                const msg = `Unable to fetch issue #${number}: ${error.message}`;
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: number,
+                  body: `⚠️ PR validation encountered an error: ${msg}`,
+                });
+                core.setFailed(msg);
               }
             }
