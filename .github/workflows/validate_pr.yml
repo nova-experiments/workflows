@@ -14,8 +14,32 @@ jobs:
         with:
           script: |
             const body = context.payload.pull_request.body || '';
-            // look for either #123 or full issue URL
-            const linked = /(?:#\d+|https:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/\d+)/.test(body);
-            if (!linked) {
-              core.setFailed('Pull request description must include a linked issue.');
+            // gather all referenced issue numbers (either #123 or full issue URL)
+            const issueRegex = /(?:#(\d+)|https:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/(\d+))/g;
+            let match;
+            const issues = new Set();
+            while ((match = issueRegex.exec(body)) !== null) {
+              issues.add(match[1] || match[2]);
+            }
+
+            if (issues.size === 0) {
+              core.setFailed('Pull request description must include atleast one linked issue.');
+              return;
+            }
+
+            // verify each issue exists and is open
+            for (const number of issues) {
+              try {
+                const response = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: number,
+                });
+
+                if (response.data.state !== 'open') {
+                  core.setFailed(`Referenced issue #${number} is not open (state: ${response.data.state}).`);
+                }
+              } catch (error) {
+                core.setFailed(`Unable to fetch issue #${number}: ${error.message}`);
+              }
             }
